@@ -597,11 +597,16 @@ router.get('/location', async (req, res, next) => {
     
     // Check if we have geo coordinates from Cloudflare middleware
     if (!req.geo || !req.geo.lat || !req.geo.lon) {
+      const isProduction = process.env.NODE_ENV === 'production';
       return res.status(400).json({
         error: true,
-        message: 'Location coordinates not available. Cloudflare geolocation headers not found.',
-        isDevelopment: process.env.NODE_ENV !== 'production',
-        suggestion: 'In development, consider using a ZIP code instead or ensure Cloudflare headers are present.'
+        message: isProduction 
+          ? 'Cloudflare geolocation headers not available in production. Please check your Cloudflare and Render configuration.'
+          : 'Location coordinates not available. Cloudflare geolocation headers not found.',
+        isDevelopment: !isProduction,
+        suggestion: isProduction 
+          ? 'Ensure Cloudflare geolocation headers are properly configured and forwarded by your hosting provider.'
+          : 'In development, consider using a ZIP code instead or ensure Cloudflare headers are present.'
       });
     }
     
