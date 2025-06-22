@@ -71,6 +71,10 @@ function useWeather() {
         
         // Fall back to NYC ZIP code (10001) for development
         try {
+          // Record fetch start time for fallback
+          const fetchStartTime = Date.now();
+          lastFetchTime.current = fetchStartTime;
+          
           const fallbackWeatherData = await window.weatherService.fetchTripleCheckWeather('10001', forceRefresh);
           
           // Only update state if this is still the most recent fetch
