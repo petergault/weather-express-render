@@ -114,6 +114,58 @@ async function fetchAzureMapsData(zipCode) {
 }
 
 /**
+ * Fetches weather data using Cloudflare geolocation coordinates
+ * @param {string} source - The weather source to use (default: 'azuremaps')
+ * @param {boolean} forceRefresh - Whether to force a refresh (bypass cache)
+ * @returns {Promise<Object>} - A promise that resolves to weather data
+ */
+async function fetchWeatherDataByLocation(source = 'azuremaps', forceRefresh = false) {
+  try {
+    // Use the back-end API endpoint for location-based weather
+    const url = `/api/weather/location?source=${source}${forceRefresh ? '&forceRefresh=true' : ''}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      // Check if this is a 400 error (missing Cloudflare headers in development)
+      if (response.status === 400) {
+        throw new Error(`Location-based weather API error: ${response.status} ${response.statusText} - Cloudflare geolocation headers not available (development mode)`);
+      }
+      throw new Error(`Location-based weather API error: ${response.status} ${response.statusText}`);
+    }
+    
+    // The back-end already returns data in our standardized format
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching location-based weather data:', error);
+    
+    // For 400 errors, throw the error so the calling code can handle fallback
+    if (error.message.includes('400')) {
+      throw error;
+    }
+    
+    // For other errors, return error information in the weather data format
+    return {
+      location: {
+        zipCode: 'Auto-detected',
+        city: 'Unknown',
+        state: 'Unknown',
+        country: 'US',
+        coordinates: {
+          latitude: 0,
+          longitude: 0
+        }
+      },
+      hourly: [],
+      daily: [],
+      source: source || 'AzureMaps',
+      lastUpdated: Date.now(),
+      isError: true,
+      errorMessage: error.message
+    };
+  }
+}
+
+/**
  * Fetches weather data for a given ZIP code with caching
  * @param {string} zipCode - The ZIP code to fetch weather data for
  * @param {boolean} forceRefresh - Whether to force a refresh (bypass cache)
@@ -1014,6 +1066,7 @@ async function fetchGoogleWeatherData(zipCode) {
 // Export the functions
 window.weatherService = {
   fetchWeatherData,
+  fetchWeatherDataByLocation,
   fetchTripleCheckWeather,
   fetchAzureMapsData,
   fetchOpenMeteoData,

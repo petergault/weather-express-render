@@ -466,6 +466,280 @@ async function fetchGoogleWeatherForecast(latitude, longitude, totalHours = 240,
     throw new Error(`Google Weather API failed: ${error.message}. Unable to retrieve weather data.`);
   }
 }
+/**
+ * Fetch IP geolocation data from ip-api.com (free service)
+ */
+async function fetchIPGeolocation(ipAddress = null) {
+  try {
+    // Use ip-api.com free service for IP geolocation
+    // If no IP provided, it will use the requesting IP
+    const url = ipAddress 
+      ? `http://ip-api.com/json/${ipAddress}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,query`
+      : `http://ip-api.com/json/?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,query`;
+    
+    const response = await axios.get(url, {
+      timeout: 5000 // 5 second timeout
+    });
+    
+    if (!response.data || response.data.status !== 'success') {
+      throw new Error(`IP geolocation failed: ${response.data?.message || 'Unknown error'}`);
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching IP geolocation:', error);
+    throw error;
+  }
+}
+
+// GET /api/weather/ip-location
+router.get('/ip-location', async (req, res, next) => {
+  try {
+    // Get the client's IP address
+    // Express with trust proxy will populate req.ip correctly
+    const clientIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+    
+    console.log(`Detecting location for IP: ${clientIP}`);
+    
+    // Check cache first (cache by IP for a reasonable time)
+    const cacheKey = `ip_location_${clientIP}`;
+    const cached = getFromServerCache(cacheKey, 60 * 60 * 1000); // Cache for 1 hour
+    if (cached) {
+      console.log(`Returning cached IP location data for ${clientIP}`);
+      return res.json(cached);
+    }
+    
+    // For localhost/development, use a fallback or no IP (which gets the server's location)
+    const isLocalhost = clientIP === '127.0.0.1' || clientIP === '::1' || clientIP === '::ffff:127.0.0.1';
+    
+    let ipLocationData;
+    if (isLocalhost) {
+      console.log('Localhost detected, using fallback location detection');
+      // For localhost, don't pass an IP so the service uses its own location detection
+      ipLocationData = await fetchIPGeolocation();
+    } else {
+      // Use the actual client IP
+      ipLocationData = await fetchIPGeolocation(clientIP);
+    }
+    
+    // Validate that we got a ZIP code
+    if (!ipLocationData.zip) {
+      return res.status(404).json({
+        error: true,
+        message: 'Could not determine ZIP code from IP location',
+        locationData: {
+          city: ipLocationData.city,
+          region: ipLocationData.regionName,
+          country: ipLocationData.country,
+          ip: ipLocationData.query
+        }
+      });
+    }
+    
+    // Prepare response data
+    const result = {
+      ip: ipLocationData.query,
+      location: {
+        zipCode: ipLocationData.zip,
+        city: ipLocationData.city,
+        state: ipLocationData.regionName,
+        region: ipLocationData.region,
+        country: ipLocationData.country,
+        countryCode: ipLocationData.countryCode,
+        coordinates: {
+          latitude: ipLocationData.lat,
+          longitude: ipLocationData.lon
+        },
+        timezone: ipLocationData.timezone
+      },
+      lastUpdated: Date.now(),
+      source: 'ip-api.com'
+    };
+    
+    // Cache the result
+    saveToServerCache(cacheKey, result, 60 * 60 * 1000); // Cache for 1 hour
+    
+    // Return the result
+    res.json(result);
+  } catch (error) {
+    console.error('Error in IP location endpoint:', error);
+    
+    // Return a fallback response for common US location if IP geolocation fails
+    const fallbackResult = {
+      ip: req.ip || 'unknown',
+      location: {
+        zipCode: '90210', // Beverly Hills, CA as fallback
+        city: 'Beverly Hills',
+        state: 'California',
+        region: 'CA',
+        country: 'United States',
+        countryCode: 'US',
+        coordinates: {
+          latitude: 34.0901,
+          longitude: -118.4065
+        },
+        timezone: 'America/Los_Angeles'
+      },
+      lastUpdated: Date.now(),
+      source: 'fallback',
+      isFallback: true,
+      errorMessage: error.message
+    };
+    
+    res.json(fallbackResult);
+  }
+});
+
+// GET /api/weather/location - uses Cloudflare coordinates
+router.get('/location', async (req, res, next) => {
+  try {
+    const { source = 'azuremaps', forceRefresh = 'false' } = req.query;
+    
+    // Check if we have geo coordinates from Cloudflare middleware
+    if (!req.geo || !req.geo.lat || !req.geo.lon) {
+      return res.status(400).json({
+        error: true,
+        message: 'Location coordinates not available. Cloudflare geolocation headers not found.',
+        isDevelopment: process.env.NODE_ENV !== 'production',
+        suggestion: 'In development, consider using a ZIP code instead or ensure Cloudflare headers are present.'
+      });
+    }
+    
+    const latitude = parseFloat(req.geo.lat);
+    const longitude = parseFloat(req.geo.lon);
+    
+    // Check cache first (unless force refresh is requested)
+    const cacheKey = `weather_location_${latitude}_${longitude}_${source}`;
+    if (forceRefresh !== 'true') {
+      const cached = getFromServerCache(cacheKey);
+      if (cached) {
+        console.log(`Returning cached location-based data for ${source} - ${latitude},${longitude}`);
+        return res.json(cached);
+      }
+    }
+    
+    // Create location object using coordinates (no ZIP code lookup needed)
+    const location = {
+      zipCode: req.geo.isDevelopmentFallback ? '10001' : 'Auto-detected',
+      city: req.geo.isDevelopmentFallback ? 'New York' : 'Auto-detected',
+      state: req.geo.isDevelopmentFallback ? 'New York' : 'Auto-detected', 
+      country: req.geo.isDevelopmentFallback ? 'US' : 'Auto-detected',
+      coordinates: {
+        latitude,
+        longitude
+      }
+    };
+    
+    // Add development fallback information if applicable
+    if (req.geo.isDevelopmentFallback) {
+      location.isDevelopmentFallback = true;
+      location.fallbackReason = 'Using NYC coordinates as development fallback';
+    }
+    
+    let weatherData;
+    
+    // Fetch weather data based on requested source
+    switch (source.toLowerCase()) {
+      case 'azuremaps':
+        // Fetch both daily and hourly forecasts in parallel
+        const [dailyData, hourlyData] = await Promise.all([
+          fetchAzureMapsDailyForecast(latitude, longitude),
+          fetchAzureMapsHourlyForecast(latitude, longitude)
+        ]);
+        
+        // Transform the data using the transformer utility functions
+        const azureTransformedDaily = transformers.transformAzureMapsDaily(dailyData);
+        const azureTransformedHourly = transformers.transformAzureMapsHourly(hourlyData);
+        
+        // Combine all data
+        weatherData = transformers.combineAzureMapsData(location, azureTransformedDaily);
+        weatherData.hourly = azureTransformedHourly;
+        break;
+        
+      case 'openmeteo':
+        const meteoData = await fetchOpenMeteoForecast(latitude, longitude);
+        
+        // Transform the data properly using transformers
+        const meteoTransformedHourly = transformers.transformOpenMeteoHourly(meteoData);
+        const meteoTransformedDaily = transformers.transformOpenMeteoDaily(meteoData);
+        const meteoTransformedCurrent = transformers.createOpenMeteoCurrent(meteoData);
+        
+        // Create properly structured weather data
+        weatherData = {
+          location,
+          current: meteoTransformedCurrent,
+          daily: meteoTransformedDaily,
+          hourly: meteoTransformedHourly,
+          source: 'OpenMeteo',
+          lastUpdated: Date.now()
+        };
+        break;
+        
+      case 'googleweather':
+        try {
+          // Fetch Google Weather API forecast
+          const googleWeatherData = await fetchGoogleWeatherForecast(latitude, longitude);
+          
+          // Transform the data using our transformer functions
+          weatherData = transformers.combineGoogleWeatherData(location, googleWeatherData);
+          
+          // Check if the data is from the real API or mock data
+          const isMockData = googleWeatherData.forecastHours &&
+                            googleWeatherData.forecastHours.length > 0 &&
+                            !googleWeatherData.forecastHours[0].weatherCondition;
+          
+          if (isMockData) {
+            weatherData.isMockData = true;
+            weatherData.mockDataReason = "Google Weather API request failed";
+          }
+        } catch (error) {
+          console.error('Error processing Google Weather data:', error.message);
+          
+          // Create a properly structured response with error information
+          weatherData = {
+            location,
+            current: {
+              temperature: 72,
+              feelsLike: 70,
+              humidity: 65,
+              windSpeed: 8,
+              windDirection: 270,
+              description: 'Partly Cloudy',
+              icon: 'partly-sunny',
+              precipitation: {
+                probability: 20,
+                amount: 0.1,
+                type: 'rain'
+              }
+            },
+            hourly: [],
+            daily: [],
+            source: 'GoogleWeather',
+            lastUpdated: Date.now(),
+            isError: true,
+            isMockData: true,
+            mockDataReason: "Google Weather API is currently unavailable",
+            errorMessage: `Error fetching Google Weather data: ${error.message}`
+          };
+        }
+        break;
+        
+      default:
+        return res.status(400).json({
+          error: true,
+          message: `Unsupported weather source: ${source}`
+        });
+    }
+    
+    // Cache the result for future requests
+    saveToServerCache(cacheKey, weatherData);
+    
+    // Return the weather data
+    res.json(weatherData);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // GET /api/weather/:zipCode
 router.get('/:zipCode', async (req, res, next) => {

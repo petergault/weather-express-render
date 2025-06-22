@@ -150,72 +150,85 @@ const WeatherDisplay = memo(({ zipCode, weatherData, isLoading, error }) => {
     return (
       <div className="weather-display card" role="region" aria-label="Weather information placeholder">
         <div className="weather-placeholder">
-          <p>Enter a ZIP code to see weather information</p>
+          <p>Weather will load automatically using your location, or enter a ZIP code above</p>
         </div>
       </div>
     );
   }
   
-  // Display weather information with cache status
+  // Handle both single weather data (location-based) and array (ZIP code triple-check)
+  const displayData = Array.isArray(weatherData) ? weatherData[0] : weatherData;
+  
+  if (!displayData) {
+    return (
+      <div className="weather-display card" role="region" aria-label="Weather information placeholder">
+        <div className="weather-placeholder">
+          <p>Weather will load automatically using your location, or enter a ZIP code above</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Display weather information
   return (
-    <div className="weather-display card" role="region" aria-label="Weather information for ${weatherData.location.city}">
+    <div className="weather-display card" role="region" aria-label={`Weather information for ${displayData.location.city}`}>
       <div>
-        <h2>Weather for {weatherData.location.city}, {weatherData.location.state} ({weatherData.location.zipCode})</h2>
+        <h2>Weather for {displayData.location.city}, {displayData.location.state} {displayData.location.zipCode && displayData.location.zipCode !== 'Auto-detected' ? `(${displayData.location.zipCode})` : ''}</h2>
         
         <div className="weather-info">
           <div className="current-weather">
             <h3>Current Conditions</h3>
             <p className="temperature">
-              {weatherData.hourly && weatherData.hourly[0] && weatherData.hourly[0].temperature ?
+              {displayData.hourly && displayData.hourly[0] && displayData.hourly[0].temperature ?
                 (window.helpers && typeof window.helpers.formatTemperature === 'function'
-                  ? window.helpers.formatTemperature(weatherData.hourly[0].temperature.value)
-                  : `${weatherData.hourly[0].temperature.value}°F`)
-                : (weatherData.current && weatherData.current.temperature ?
+                  ? window.helpers.formatTemperature(displayData.hourly[0].temperature.value)
+                  : `${displayData.hourly[0].temperature.value}°F`)
+                : (displayData.current && displayData.current.temperature ?
                     (window.helpers && typeof window.helpers.formatTemperature === 'function'
-                      ? window.helpers.formatTemperature(weatherData.current.temperature)
-                      : `${weatherData.current.temperature}°F`)
+                      ? window.helpers.formatTemperature(displayData.current.temperature)
+                      : `${displayData.current.temperature}°F`)
                     : 'N/A')}
             </p>
-            <p className="description">{weatherData.current ? (weatherData.current.shortPhrase || weatherData.current.iconPhrase || 'N/A') : 'N/A'}</p>
-            <p>Feels like: {weatherData.hourly && weatherData.hourly[0] && weatherData.hourly[0].realFeelTemperature ?
+            <p className="description">{displayData.current ? (displayData.current.shortPhrase || displayData.current.iconPhrase || 'N/A') : 'N/A'}</p>
+            <p>Feels like: {displayData.hourly && displayData.hourly[0] && displayData.hourly[0].realFeelTemperature ?
                 (window.helpers && typeof window.helpers.formatTemperature === 'function'
-                  ? window.helpers.formatTemperature(weatherData.hourly[0].realFeelTemperature.value)
-                  : `${weatherData.hourly[0].realFeelTemperature.value}°F`)
-                : (weatherData.current && weatherData.current.feelsLike ?
+                  ? window.helpers.formatTemperature(displayData.hourly[0].realFeelTemperature.value)
+                  : `${displayData.hourly[0].realFeelTemperature.value}°F`)
+                : (displayData.current && displayData.current.feelsLike ?
                     (window.helpers && typeof window.helpers.formatTemperature === 'function'
-                      ? window.helpers.formatTemperature(weatherData.current.feelsLike)
-                      : `${weatherData.current.feelsLike}°F`)
+                      ? window.helpers.formatTemperature(displayData.current.feelsLike)
+                      : `${displayData.current.feelsLike}°F`)
                     : 'N/A')}</p>
-            <p>Humidity: {weatherData.hourly && weatherData.hourly[0] && weatherData.hourly[0].relativeHumidity ?
-                `${weatherData.hourly[0].relativeHumidity}%`
-                : (weatherData.current && weatherData.current.humidity ?
-                    `${weatherData.current.humidity}%`
+            <p>Humidity: {displayData.hourly && displayData.hourly[0] && displayData.hourly[0].relativeHumidity ?
+                `${displayData.hourly[0].relativeHumidity}%`
+                : (displayData.current && displayData.current.humidity ?
+                    `${displayData.current.humidity}%`
                     : 'N/A')}</p>
-            <p>Wind: {weatherData.current && weatherData.current.wind && weatherData.current.wind.speed ?
+            <p>Wind: {displayData.current && displayData.current.wind && displayData.current.wind.speed ?
                 (window.helpers && typeof window.helpers.formatWindSpeed === 'function'
-                  ? window.helpers.formatWindSpeed(weatherData.current.wind.speed.value)
-                  : `${weatherData.current.wind.speed.value} ${weatherData.current.wind.speed.unit}`)
-                : (weatherData.current && weatherData.current.windSpeed ?
+                  ? window.helpers.formatWindSpeed(displayData.current.wind.speed.value)
+                  : `${displayData.current.wind.speed.value} ${displayData.current.wind.speed.unit}`)
+                : (displayData.current && displayData.current.windSpeed ?
                     (window.helpers && typeof window.helpers.formatWindSpeed === 'function'
-                      ? window.helpers.formatWindSpeed(weatherData.current.windSpeed)
-                      : `${weatherData.current.windSpeed} mph`)
+                      ? window.helpers.formatWindSpeed(displayData.current.windSpeed)
+                      : `${displayData.current.windSpeed} mph`)
                     : 'N/A')}</p>
-            <p>Precipitation: {weatherData.current && weatherData.current.precipitationProbability !== undefined ?
+            <p>Precipitation: {displayData.current && displayData.current.precipitationProbability !== undefined ?
                 (window.helpers && typeof window.helpers.formatProbability === 'function'
-                  ? window.helpers.formatProbability(weatherData.current.precipitationProbability)
-                  : `${weatherData.current.precipitationProbability}%`)
-                : (weatherData.hourly && weatherData.hourly[0] && weatherData.hourly[0].precipitationProbability !== undefined ?
+                  ? window.helpers.formatProbability(displayData.current.precipitationProbability)
+                  : `${displayData.current.precipitationProbability}%`)
+                : (displayData.hourly && displayData.hourly[0] && displayData.hourly[0].precipitationProbability !== undefined ?
                     (window.helpers && typeof window.helpers.formatProbability === 'function'
-                      ? window.helpers.formatProbability(weatherData.hourly[0].precipitationProbability)
-                      : `${weatherData.hourly[0].precipitationProbability}%`)
+                      ? window.helpers.formatProbability(displayData.hourly[0].precipitationProbability)
+                      : `${displayData.hourly[0].precipitationProbability}%`)
                     : 'N/A')}</p>
           </div>
           <div className="source-info">
-            <p>Source: {weatherData.source}</p>
+            <p>Source: {displayData.source}</p>
             <p>Last Updated: {
               window.helpers && typeof window.helpers.formatDate === 'function' && typeof window.helpers.formatTime === 'function'
-                ? `${window.helpers.formatDate(weatherData.lastUpdated)} ${window.helpers.formatTime(weatherData.lastUpdated)}`
-                : new Date(weatherData.lastUpdated).toLocaleString()
+                ? `${window.helpers.formatDate(displayData.lastUpdated)} ${window.helpers.formatTime(displayData.lastUpdated)}`
+                : new Date(displayData.lastUpdated).toLocaleString()
             }</p>
           </div>
         </div>
@@ -248,26 +261,28 @@ RefreshButton.displayName = 'RefreshButton';
 
 // Main App Component
 const App = () => {
-  // Use our custom hook to manage weather data
+  // Use our custom hook to manage weather data with both ZIP code and location support
   const {
-    zipCode,
     data: weatherData,
     isLoading,
     error,
+    zipCode,
     recentZipCodes,
     setZipCode,
-    setZipCodeAndFetchTriple,
+    fetchTripleCheck,
     refreshData
   } = window.useWeather();
   
-  // Always show comparison view by default (Phase 1 change)
-  // No longer need state to track this as we always show comparison view
-  
   // Memoized handler for ZIP code submission
-  const handleZipCodeSubmit = useCallback((zipCode) => {
-    // Always fetch from all three sources (Phase 1 change)
-    setZipCodeAndFetchTriple(zipCode);
-  }, [setZipCodeAndFetchTriple]);
+  const handleZipCodeSubmit = useCallback((newZipCode) => {
+    setZipCode(newZipCode);
+    fetchTripleCheck(newZipCode);
+    
+    // Update URL with ZIP code parameter
+    const url = new URL(window.location);
+    url.searchParams.set('zip', newZipCode);
+    window.history.pushState({}, '', url);
+  }, [setZipCode, fetchTripleCheck]);
   
   // Memoized handler for refreshing data
   const handleRefresh = useCallback(() => {
@@ -289,12 +304,7 @@ const App = () => {
         // Store demo mode status in localStorage for the config module
         localStorage.setItem('DEMO_MODE', demoMode.toString());
       });
-      
-    // If we have a ZIP code on first load, fetch data from all three sources (Phase 1 change)
-    if (zipCode) {
-      setZipCodeAndFetchTriple(zipCode);
-    }
-  }, [zipCode, setZipCodeAndFetchTriple]);
+  }, []);
   
   return (
     <div className="app-container">
@@ -305,7 +315,7 @@ const App = () => {
             <h1>Super Sky</h1>
           </div>
           
-          <div id="zip-code-input" className="header-zip-input">
+          <div className="header-zip-input">
             <ZipCodeInput
               onSubmit={handleZipCodeSubmit}
               recentZipCodes={recentZipCodes}
@@ -330,6 +340,12 @@ const App = () => {
         <div className="container">
           <div className="row">
             <div className="col">
+              <WeatherDisplay
+                zipCode={zipCode}
+                weatherData={weatherData}
+                isLoading={isLoading}
+                error={error}
+              />
               
               <ComparisonView
                 weatherData={weatherData}

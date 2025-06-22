@@ -1,109 +1,30 @@
 /**
  * useWeather Hook
  *
- * This custom hook handles fetching and managing weather data.
- * It also manages URL parameters and local storage for recent ZIP codes.
- *
- * Phase 4 enhancements:
- * - Support for cached data with timestamp information
- * - Force refresh capability
- * - Enhanced error handling with retry status
- * - Loading state improvements
+ * This custom hook handles fetching and managing weather data with support for both
+ * ZIP code input and automatic location detection.
+ * 
+ * Features:
+ * - Automatic location-based weather fetching on initial load (when no ZIP code provided)
+ * - Manual ZIP code input with triple-check weather data
+ * - URL parameter handling for ZIP codes
+ * - Recent ZIP codes management
  */
 
 // Simulate React hooks
 const { useState, useEffect, useCallback, useRef } = React;
 
-// Maximum number of recent ZIP codes to store
-const MAX_RECENT_ZIP_CODES = 5;
-
-// Local storage key for recent ZIP codes
-const RECENT_ZIP_CODES_KEY = 'recentZipCodes';
-
-/**
- * Get ZIP code from URL parameters
- * @returns {string|null} - ZIP code from URL or null if not found
- */
-function getZipCodeFromUrl() {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get('zip');
-}
-
-/**
- * Update URL with ZIP code parameter
- * @param {string} zipCode - ZIP code to add to URL
- */
-function updateUrlWithZipCode(zipCode) {
-  if (!zipCode) return;
-  
-  const url = new URL(window.location);
-  url.searchParams.set('zip', zipCode);
-  
-  // Update URL without reloading the page
-  window.history.pushState({}, '', url);
-}
-
-/**
- * Get recent ZIP codes from local storage
- * @returns {string[]} - Array of recent ZIP codes
- */
-function getRecentZipCodes() {
-  try {
-    const stored = localStorage.getItem(RECENT_ZIP_CODES_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch (error) {
-    console.error('Error reading recent ZIP codes from localStorage:', error);
-    return [];
-  }
-}
-
-/**
- * Save a ZIP code to recent ZIP codes in local storage
- * @param {string} zipCode - ZIP code to save
- */
-function saveRecentZipCode(zipCode) {
-  if (!zipCode) return;
-  
-  try {
-    // Get current list
-    let recentZipCodes = getRecentZipCodes();
-    
-    // Remove this ZIP code if it already exists (to avoid duplicates)
-    recentZipCodes = recentZipCodes.filter(zip => zip !== zipCode);
-    
-    // Add the new ZIP code to the beginning
-    recentZipCodes.unshift(zipCode);
-    
-    // Limit to maximum number
-    if (recentZipCodes.length > MAX_RECENT_ZIP_CODES) {
-      recentZipCodes = recentZipCodes.slice(0, MAX_RECENT_ZIP_CODES);
-    }
-    
-    // Save to localStorage
-    localStorage.setItem(RECENT_ZIP_CODES_KEY, JSON.stringify(recentZipCodes));
-    
-    return recentZipCodes;
-  } catch (error) {
-    console.error('Error saving recent ZIP code to localStorage:', error);
-    return [];
-  }
-}
-
 /**
  * Custom hook for fetching and managing weather data
- * @param {string|null} initialZipCode - The initial ZIP code to fetch weather for
  * @returns {Object} - Weather data state and functions
  */
-function useWeather(initialZipCode) {
-  // Get ZIP code from URL if not provided
-  const zipFromUrl = getZipCodeFromUrl();
-  const [zipCode, setZipCode] = useState(initialZipCode || zipFromUrl || '');
-  
+function useWeather() {
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [recentZipCodes, setRecentZipCodes] = useState(getRecentZipCodes());
   const [retryCount, setRetryCount] = useState(0);
+  const [zipCode, setZipCode] = useState('');
+  const [recentZipCodes, setRecentZipCodes] = useState([]);
   
   // Keep track of whether this is the first render
   const isFirstRender = useRef(true);
@@ -111,26 +32,19 @@ function useWeather(initialZipCode) {
   // Keep track of the last fetch time
   const lastFetchTime = useRef(null);
   
-  // Function to fetch weather data with optional force refresh
-  const fetchWeather = useCallback(async (zip, forceRefresh = false) => {
-    if (!zip) return;
-    
+  // Function to fetch weather data using automatic location detection
+  const fetchWeatherByLocation = useCallback(async (forceRefresh = false) => {
     try {
       setIsLoading(true);
       setError(null);
       setRetryCount(0);
       
-      // Update URL and recent ZIP codes
-      updateUrlWithZipCode(zip);
-      const updated = saveRecentZipCode(zip);
-      setRecentZipCodes(updated);
-      
       // Record fetch start time
       const fetchStartTime = Date.now();
       lastFetchTime.current = fetchStartTime;
       
-      // Use the weatherService to fetch data with caching
-      const weatherData = await window.weatherService.fetchWeatherData(zip, forceRefresh);
+      // Use the weatherService to fetch location-based data
+      const weatherData = await window.weatherService.fetchWeatherDataByLocation('azuremaps', forceRefresh);
       
       // Only update state if this is still the most recent fetch
       if (lastFetchTime.current === fetchStartTime) {
@@ -149,7 +63,79 @@ function useWeather(initialZipCode) {
         setData(weatherData);
       }
     } catch (err) {
-      console.error('Error fetching weather data:', err);
+      console.error('Error fetching weather data by location:', err);
+      
+      // Check if this is a 400 error (likely missing Cloudflare headers in development)
+      if (err.message && err.message.includes('400')) {
+        console.log('Location-based endpoint failed (likely development environment), falling back to default location');
+        
+        // Fall back to NYC ZIP code (10001) for development
+        try {
+          const fallbackWeatherData = await window.weatherService.fetchTripleCheckWeather('10001', forceRefresh);
+          
+          // Only update state if this is still the most recent fetch
+          if (lastFetchTime.current === fetchStartTime) {
+            // Add a note that this is fallback data
+            if (fallbackWeatherData && fallbackWeatherData.length > 0) {
+              fallbackWeatherData[0].isFallbackData = true;
+              fallbackWeatherData[0].fallbackReason = 'Using NYC as default location for development';
+            }
+            setData(fallbackWeatherData);
+          }
+          return; // Exit early, don't set error
+        } catch (fallbackErr) {
+          console.error('Fallback to NYC also failed:', fallbackErr);
+          setError('Unable to fetch weather data. Please enter a ZIP code manually.');
+        }
+      } else {
+        setError('Failed to fetch weather data from the server. Please try again.');
+      }
+      setRetryCount(prev => prev + 1);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+  
+  // Function to fetch weather data using ZIP code (triple-check)
+  const fetchTripleCheck = useCallback(async (zipCodeValue, forceRefresh = false) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      setRetryCount(0);
+      
+      // Record fetch start time
+      const fetchStartTime = Date.now();
+      lastFetchTime.current = fetchStartTime;
+      
+      // Use the weatherService to fetch triple-check data
+      const weatherData = await window.weatherService.fetchTripleCheckWeather(zipCodeValue, forceRefresh);
+      
+      // Only update state if this is still the most recent fetch
+      if (lastFetchTime.current === fetchStartTime) {
+        // Check if there was an error in the weather data
+        if (weatherData && weatherData.length > 0 && weatherData[0].isError) {
+          // Enhanced error handling for back-end API errors
+          const errorMsg = weatherData[0].errorMessage || 'Failed to fetch weather data.';
+          setError(errorMsg);
+          
+          // Log more detailed error information if available
+          if (weatherData[0].errorDetails) {
+            console.error('Detailed error information:', weatherData[0].errorDetails);
+          }
+        }
+        
+        setData(weatherData);
+        
+        // Update recent ZIP codes
+        if (zipCodeValue && !weatherData[0]?.isError) {
+          setRecentZipCodes(prev => {
+            const newList = [zipCodeValue, ...prev.filter(zip => zip !== zipCodeValue)];
+            return newList.slice(0, 5); // Keep only last 5
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching weather data by ZIP code:', err);
       setError('Failed to fetch weather data from the server. Please try again.');
       setRetryCount(prev => prev + 1);
     } finally {
@@ -157,139 +143,74 @@ function useWeather(initialZipCode) {
     }
   }, []);
   
-  // Function to fetch weather data from multiple sources with progressive loading
-  const fetchTripleCheck = useCallback(async (zip, forceRefresh = false) => {
-    if (!zip) return;
-    
-    try {
-      setIsLoading(true);
-      setError(null);
-      setRetryCount(0);
-      
-      // Update URL and recent ZIP codes
-      updateUrlWithZipCode(zip);
-      const updated = saveRecentZipCode(zip);
-      setRecentZipCodes(updated);
-      
-      // Record fetch start time
-      const fetchStartTime = Date.now();
-      lastFetchTime.current = fetchStartTime;
-      
-      // Initialize with skeleton data for progressive loading
-      const skeletonData = [
-        { source: 'AzureMaps', isLoading: true, location: { zipCode: zip } },
-        { source: 'OpenMeteo', isLoading: true, location: { zipCode: zip } },
-        { source: 'Foreca', isLoading: true, location: { zipCode: zip } },
-        { source: 'GoogleWeather', isLoading: true, location: { zipCode: zip } }
-      ];
-      setData(skeletonData);
-      
-      // Check cache first for instant display
-      if (!forceRefresh && window.cacheManager) {
-        const cacheKey = window.cacheManager.getCacheKey(zip, 'triple');
-        const cached = window.cacheManager.getFromCache(cacheKey, window.cacheManager.WEATHER_CACHE_EXPIRATION);
-        if (cached) {
-          console.log('Displaying cached data immediately');
-          setData(cached.data);
-          setIsLoading(false);
-          return;
-        }
+  // Function to refresh the current data
+  const refreshData = useCallback(() => {
+    if (zipCode) {
+      // If we have a ZIP code, refresh with ZIP code data
+      fetchTripleCheck(zipCode, true);
+    } else {
+      // Otherwise, refresh with location-based data
+      fetchWeatherByLocation(true);
+    }
+  }, [zipCode, fetchTripleCheck, fetchWeatherByLocation]);
+  
+  // Load recent ZIP codes from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('recentZipCodes');
+    if (saved) {
+      try {
+        setRecentZipCodes(JSON.parse(saved));
+      } catch (e) {
+        console.warn('Failed to parse recent ZIP codes from localStorage');
       }
-      
-      // Use the weatherService to fetch data from multiple sources
-      const tripleCheckData = await window.weatherService.fetchTripleCheckWeather(zip, forceRefresh);
-      
-      // Only update state if this is still the most recent fetch
-      if (lastFetchTime.current === fetchStartTime) {
-        // Check if all sources returned errors
-        const allErrors = tripleCheckData.every(data => data.isError);
-        if (allErrors) {
-          setError('Failed to fetch weather data from all sources. Please check your connection and try again.');
-          
-          // Log more detailed error information if available
-          const errorDetails = tripleCheckData.map(data => data.errorMessage || 'Unknown error');
-          console.error('All sources failed with errors:', errorDetails);
-        } else {
-          // Check if some sources returned errors and log them
-          const partialErrors = tripleCheckData.some(data => data.isError);
-          if (partialErrors) {
-            const errorSources = tripleCheckData
-              .filter(data => data.isError)
-              .map(data => data.source);
-            console.warn(`Some weather sources failed: ${errorSources.join(', ')}`);
-          }
-          
-          setData(tripleCheckData);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching super sky weather data:', err);
-      setError('Failed to fetch weather data from the server. Please check your connection and try again.');
-      setRetryCount(prev => prev + 1);
-    } finally {
-      setIsLoading(false);
     }
   }, []);
   
-  // Function to set a new ZIP code and fetch data
-  const setZipCodeAndFetch = useCallback((zip, forceRefresh = false) => {
-    setZipCode(zip);
-    fetchWeather(zip, forceRefresh);
-  }, [fetchWeather]);
-  
-  // Function to set a new ZIP code and fetch triple check data
-  const setZipCodeAndFetchTriple = useCallback((zip, forceRefresh = false) => {
-    setZipCode(zip);
-    fetchTripleCheck(zip, forceRefresh);
-  }, [fetchTripleCheck]);
-  
-  // Function to refresh the current data
-  // Phase 1 change: Always refresh from all three sources
-  const refreshData = useCallback(() => {
-    if (zipCode) {
-      // Always use triple check mode
-      fetchTripleCheck(zipCode, true); // Force refresh to get fresh data
+  // Save recent ZIP codes to localStorage when they change
+  useEffect(() => {
+    if (recentZipCodes.length > 0) {
+      localStorage.setItem('recentZipCodes', JSON.stringify(recentZipCodes));
     }
-  }, [zipCode, fetchTripleCheck]);
+  }, [recentZipCodes]);
   
-  // Fetch weather data when zipCode changes, but only after the first render
-  // Phase 1 change: Always fetch from all three sources by default
+  // Get ZIP code from URL parameters on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlZipCode = urlParams.get('zip');
+    if (urlZipCode) {
+      setZipCode(urlZipCode);
+    }
+  }, []);
+  
+  // Fetch weather data based on ZIP code or location
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       
-      // If we have a ZIP code on first render, fetch data from all three sources
       if (zipCode) {
+        // If ZIP code is provided, fetch weather for that ZIP code
         fetchTripleCheck(zipCode);
+      } else {
+        // Otherwise, fetch weather using automatic location detection
+        fetchWeatherByLocation();
       }
-    } else if (zipCode) {
-      fetchTripleCheck(zipCode);
     }
-  }, [zipCode, fetchTripleCheck]);
+  }, [zipCode, fetchTripleCheck, fetchWeatherByLocation]);
   
   // Return the state and functions
   return {
-    zipCode,
     data,
     isLoading,
     error,
-    recentZipCodes,
     retryCount,
-    setZipCode: setZipCodeAndFetch,
-    fetchWeather,
+    zipCode,
+    recentZipCodes,
+    setZipCode,
     fetchTripleCheck,
-    setZipCodeAndFetchTriple,
+    fetchWeatherByLocation,
     refreshData
   };
 }
 
-// Export the hook and utility functions
+// Export the hook
 window.useWeather = useWeather;
-window.weatherUtils = {
-  getZipCodeFromUrl,
-  updateUrlWithZipCode,
-  getRecentZipCodes,
-  saveRecentZipCode
-};
-
-// No longer need global cache clearing function

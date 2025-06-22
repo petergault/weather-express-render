@@ -52,6 +52,30 @@ const apiLimiter = rateLimit({
 app.use('/api', apiLimiter);
 
 
+// Cloudflare geolocation middleware with development fallback
+app.use((req, res, next) => {
+  const lat = req.headers['cf-iplatitude'];
+  const lon = req.headers['cf-iplongitude'];
+  
+  if (lat && lon) {
+    // Production: Use Cloudflare geolocation headers
+    // Round to 4 decimal places to avoid leaking exact locations
+    req.geo = { lat: (+lat).toFixed(4), lon: (+lon).toFixed(4) };
+  } else if (process.env.NODE_ENV !== 'production') {
+    // Development: Use NYC as default fallback location
+    console.log('Development mode: Using NYC as default location fallback');
+    req.geo = { 
+      lat: '40.7128',  // NYC latitude
+      lon: '-74.0060', // NYC longitude
+      isDevelopmentFallback: true
+    };
+  }
+  // In production without Cloudflare headers, req.geo remains undefined
+  // which will trigger the appropriate error handling
+  
+  next();
+});
+
 // API Routes
 app.use('/api/weather', weatherRoutes);
 
