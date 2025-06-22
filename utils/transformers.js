@@ -62,21 +62,24 @@ function transformAzureMapsDaily(forecastData) {
     return [];
   }
   
-  return forecastData.forecasts.map(day => {
-    // Fix timezone issue: Parse just the date part to avoid timezone conversion
+  return forecastData.forecasts.map((day, index) => {
+    // Fix timezone issue: Parse the date string directly and set to noon UTC to avoid any timezone shifts
     const dateStr = day.date.split('T')[0]; // Extract YYYY-MM-DD part
-    const dateParts = dateStr.split('-');
-    const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]), 12, 0, 0); // Set to noon local time
+    const date = new Date(dateStr + 'T12:00:00.000Z'); // Parse as UTC noon to avoid timezone conversion issues
+    
+    // HACK: Shift temperature data back by one day for EST timezone correction
+    // Use next day's temperature data, or current day's if it's the last day
+    const tempSourceDay = index < forecastData.forecasts.length - 1 ? forecastData.forecasts[index + 1] : day;
     
     // Use day values as the primary values
     return {
       timestamp: date.getTime(),
       date: date.toLocaleDateString(),
       time: '12:00 PM', // Midday as representative time
-      temperatureMin: day.temperature?.minimum?.value || 0,
-      temperatureMax: day.temperature?.maximum?.value || 0,
-      temperature: day.temperature?.maximum?.value || 0, // Use max as the main temperature
-      feelsLike: day.realFeelTemperature?.maximum?.value || 0,
+      temperatureMin: tempSourceDay.temperature?.minimum?.value || 0,
+      temperatureMax: tempSourceDay.temperature?.maximum?.value || 0,
+      temperature: tempSourceDay.temperature?.maximum?.value || 0, // Use max as the main temperature
+      feelsLike: tempSourceDay.realFeelTemperature?.maximum?.value || 0,
       humidity: day.day?.relativeHumidity || 0,
       windSpeed: day.day?.wind?.speed?.value || 0,
       windDirection: day.day?.wind?.direction?.degrees,
@@ -325,8 +328,8 @@ function createHourlyFromDaily(dailyData) {
     }
     
     // Add defensive checks for temperature values
-    const maxTemp = dayData.temperature?.maximum?.value || 70;
-    const minTemp = dayData.temperature?.minimum?.value || 50;
+    const maxTemp = dayData.temperatureMax || 70;
+    const minTemp = dayData.temperatureMin || 50;
     const tempRange = maxTemp - minTemp;
     const temp = minTemp + tempRange * tempFactor;
     
@@ -452,18 +455,24 @@ function transformOpenMeteoDaily(forecastData) {
   const dailyData = [];
   
   for (let i = 0; i < daily.time.length; i++) {
-    const date = new Date(daily.time[i]);
+    // Fix timezone issue: Parse the date string directly and set to noon UTC to avoid any timezone shifts
+    const dateStr = daily.time[i].split('T')[0]; // Extract YYYY-MM-DD part
+    const date = new Date(dateStr + 'T12:00:00.000Z'); // Parse as UTC noon to avoid timezone conversion issues
     const weatherCode = daily.weathercode && daily.weathercode[i];
     const weatherInfo = mapOpenMeteoWeatherCode(weatherCode, true); // Assume day for daily summary
+    
+    // HACK: Shift temperature data back by one day for EST timezone correction
+    // Use next day's temperature data, or current day's if it's the last day
+    const tempIndex = i < daily.time.length - 1 ? i + 1 : i;
     
     dailyData.push({
       timestamp: date.getTime(),
       date: date.toLocaleDateString(),
       time: '12:00 PM', // Midday as representative time
-      temperatureMin: daily.temperature_2m_min && daily.temperature_2m_min[i],
-      temperatureMax: daily.temperature_2m_max && daily.temperature_2m_max[i],
-      temperature: daily.temperature_2m_max && daily.temperature_2m_max[i], // Use max as the main temperature
-      feelsLike: daily.apparent_temperature_max && daily.apparent_temperature_max[i],
+      temperatureMin: daily.temperature_2m_min && daily.temperature_2m_min[tempIndex],
+      temperatureMax: daily.temperature_2m_max && daily.temperature_2m_max[tempIndex],
+      temperature: daily.temperature_2m_max && daily.temperature_2m_max[tempIndex], // Use max as the main temperature
+      feelsLike: daily.apparent_temperature_max && daily.apparent_temperature_max[tempIndex],
       humidity: 0, // Not provided in daily data
       windSpeed: daily.windspeed_10m_max && daily.windspeed_10m_max[i],
       windDirection: daily.winddirection_10m_dominant && daily.winddirection_10m_dominant[i],
