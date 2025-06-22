@@ -63,7 +63,10 @@ function transformAzureMapsDaily(forecastData) {
   }
   
   return forecastData.forecasts.map(day => {
-    const date = new Date(day.date);
+    // Fix timezone issue: Parse just the date part to avoid timezone conversion
+    const dateStr = day.date.split('T')[0]; // Extract YYYY-MM-DD part
+    const dateParts = dateStr.split('-');
+    const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]), 12, 0, 0); // Set to noon local time
     
     // Use day values as the primary values
     return {
