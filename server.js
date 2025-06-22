@@ -15,7 +15,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Trust proxy when behind reverse proxy (like Render)
-app.set('trust proxy', 1);
+app.set('trust proxy', 2);
 
 
 // Middleware
