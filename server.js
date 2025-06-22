@@ -57,8 +57,8 @@ app.use((req, res, next) => {
 
 // console.log('--- All Incoming Headers ---');
   // console.log(JSON.stringify(req.headers, null, 2));
-  const lat = req.headers['cf-iplatitude'];
-  const lon = req.headers['cf-iplongitude'];
+  const lat = req.headers['cf-iplatitude'] ?? null;
+  const lon = req.headers['cf-iplongitude'] ?? null;
   
   if (lat && lon) {
     // Production: Use Cloudflare geolocation headers
