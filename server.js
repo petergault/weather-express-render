@@ -55,8 +55,8 @@ app.use('/api', apiLimiter);
 // Cloudflare geolocation middleware with development fallback
 app.use((req, res, next) => {
 
-console.log('--- All Incoming Headers ---');
-  console.log(JSON.stringify(req.headers, null, 2));
+// console.log('--- All Incoming Headers ---');
+  // console.log(JSON.stringify(req.headers, null, 2));
   const lat = req.headers['cf-iplatitude'];
   const lon = req.headers['cf-iplongitude'];
   
