@@ -14,6 +14,9 @@ const weatherRoutes = require('./routes/weather');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy when behind reverse proxy (like Render)
+app.set('trust proxy', true);
+
 
 // Middleware
 app.use(compression()); // Enable gzip compression
@@ -30,7 +33,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "https://api.openweathermap.org", "https://atlas.microsoft.com", "http://localhost:3000", "http://localhost:8080"],
+      connectSrc: ["'self'", "https://api.openweathermap.org", "https://atlas.microsoft.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"]
     }
   }
