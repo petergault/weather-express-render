@@ -81,7 +81,7 @@ app.use((req, res, next) => {
 
 // API Routes
 // Debug route to check headers
-app.get('/debug/headers', (req, res) => res.json(req.headers));
+app.get('/api/debug/headers', (req, res) => res.json(req.headers));
 app.use('/api/weather', weatherRoutes);
 
 // Add status endpoint for app configuration
