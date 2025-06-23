@@ -83,6 +83,9 @@ app.use((req, res, next) => {
 
 
 app.use('/api/weather', weatherRoutes);
+app.get('/api/debug/headers', (req, res) => {
+  res.json(req.headers);
+});
 
 // Add status endpoint for app configuration
 app.get('/api/status', (req, res) => {
@@ -123,9 +126,7 @@ app.use(express.static(path.join(__dirname), {
   }
 }));
 
-app.get('/debug/headers', (req, res) => {
-  res.json(req.headers);
-});
+
 
 // Serve index.html for all routes for client-side routing
 app.get('*', (req, res) => {
