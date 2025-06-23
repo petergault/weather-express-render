@@ -55,8 +55,8 @@ app.use('/api', apiLimiter);
 // Cloudflare geolocation middleware with development fallback
 app.use((req, res, next) => {
 
-// console.log('--- All Incoming Headers ---');
-  // console.log(JSON.stringify(req.headers, null, 2));
+ console.log('--- All Incoming Headers ---');
+   console.log(JSON.stringify(req.headers, null, 2));
   const lat = req.headers['cf-iplatitude'] ?? null;
   const lon = req.headers['cf-iplongitude'] ?? null;
   
@@ -80,6 +80,8 @@ app.use((req, res, next) => {
 });
 
 // API Routes
+// Debug route to check headers
+app.get('/debug/headers', (req, res) => res.json(req.headers));
 app.use('/api/weather', weatherRoutes);
 
 // Add status endpoint for app configuration
