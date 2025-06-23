@@ -122,8 +122,7 @@ app.use(express.static(path.join(__dirname), {
   }
 }));
 
-// Debug route to inspect request headers
-app.get('/debug/headers', (req, res) => res.json(req.headers));
+
 // Serve index.html for all routes for client-side routing
 app.get('*', (req, res) => {
   // Set no-cache headers for the main HTML file
