@@ -80,9 +80,7 @@ app.use((req, res, next) => {
 });
 
 // API Routes
-app.get('/debug/headers', (req, res) => {
-  res.json(req.headers);
-});
+
 
 app.use('/api/weather', weatherRoutes);
 
@@ -125,6 +123,9 @@ app.use(express.static(path.join(__dirname), {
   }
 }));
 
+app.get('/debug/headers', (req, res) => {
+  res.json(req.headers);
+});
 
 // Serve index.html for all routes for client-side routing
 app.get('*', (req, res) => {
