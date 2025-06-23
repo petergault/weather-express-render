@@ -80,6 +80,9 @@ app.use((req, res, next) => {
 });
 
 // API Routes
+app.get('/debug/headers', (req, res) => {
+  res.json(req.headers);
+});
 
 app.use('/api/weather', weatherRoutes);
 
