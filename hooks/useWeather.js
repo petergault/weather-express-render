@@ -147,6 +147,14 @@ function useWeather() {
     }
   }, []);
   
+  // Function to set a new ZIP code and immediately fetch triple-check data
+  const setZipCodeAndFetchTriple = useCallback((zip, forceRefresh = false) => {
+    if (!zip) return;
+
+    setZipCode(zip);
+    fetchTripleCheck(zip, forceRefresh);
+  }, [fetchTripleCheck]);
+
   // Function to refresh the current data
   const refreshData = useCallback(() => {
     if (zipCode) {
@@ -212,6 +220,7 @@ function useWeather() {
     setZipCode,
     fetchTripleCheck,
     fetchWeatherByLocation,
+    setZipCodeAndFetchTriple,
     refreshData
   };
 }
