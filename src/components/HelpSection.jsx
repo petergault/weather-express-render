@@ -1,3 +1,5 @@
+import React from 'react';
+
 const HelpSection = () => (
   <section className="card help-section" aria-labelledby="help-section-heading">
     <h2 id="help-section-heading">Need a hand?</h2>
@@ -20,5 +22,4 @@ const HelpSection = () => (
   </section>
 );
 
-HelpSection.displayName = 'HelpSection';
-window.HelpSection = HelpSection;
+export default HelpSection;

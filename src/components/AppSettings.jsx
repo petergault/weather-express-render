@@ -1,3 +1,5 @@
+import React from 'react';
+
 const AppSettings = ({ zipCode }) => (
   <section className="card app-settings" aria-labelledby="app-settings-heading">
     <h2 id="app-settings-heading">App preferences</h2>
@@ -28,5 +30,4 @@ const AppSettings = ({ zipCode }) => (
   </section>
 );
 
-AppSettings.displayName = 'AppSettings';
-window.AppSettings = AppSettings;
+export default AppSettings;

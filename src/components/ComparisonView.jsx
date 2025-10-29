@@ -1,5 +1,5 @@
-const { useMemo } = React;
-const SkeletonLoader = window.SkeletonLoader;
+import React, { useMemo } from 'react';
+import SkeletonLoader from './SkeletonLoader';
 
 const formatTemperature = (value) => {
   if (typeof value !== 'number' || Number.isNaN(value)) {
@@ -145,5 +145,4 @@ const ComparisonView = ({ weatherData, isLoading, error }) => {
   );
 };
 
-ComparisonView.displayName = 'ComparisonView';
-window.ComparisonView = ComparisonView;
+export default ComparisonView;

@@ -1,10 +1,10 @@
-import React from 'react';
-
 /**
  * SkeletonLoader Component - Displays a loading skeleton for different content types
  * @param {Object} props - Component props
  * @param {string} props.type - Type of skeleton to display (weather, comparison)
  */
+import React from 'react';
+
 const SkeletonLoader = ({ type = 'weather' }) => {
   if (type === 'comparison') {
     return (

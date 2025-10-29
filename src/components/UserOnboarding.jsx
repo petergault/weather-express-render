@@ -1,6 +1,6 @@
-const { useState } = React;
+import React, { useState } from 'react';
 
-const onboardingSteps = [
+const steps = [
   {
     title: 'Welcome to Super Sky',
     message: 'Enter a ZIP code to compare daily forecasts from multiple providers.',
@@ -19,27 +19,24 @@ const UserOnboarding = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
   const handleNext = () => {
-    if (currentStep < onboardingSteps.length - 1) {
+    if (currentStep < steps.length - 1) {
       setCurrentStep((step) => step + 1);
-    } else if (typeof onComplete === 'function') {
+    } else if (onComplete) {
       onComplete();
     }
   };
 
-  const step = onboardingSteps[currentStep];
-
   return (
     <section className="card onboarding" aria-live="polite" aria-label="Getting started guide">
-      <h2>{step.title}</h2>
-      <p>{step.message}</p>
+      <h2>{steps[currentStep].title}</h2>
+      <p>{steps[currentStep].message}</p>
       <div className="onboarding-controls">
         <button type="button" className="btn btn-primary" onClick={handleNext}>
-          {currentStep < onboardingSteps.length - 1 ? 'Next' : 'Got it'}
+          {currentStep < steps.length - 1 ? 'Next' : 'Got it'}
         </button>
       </div>
     </section>
   );
 };
 
-UserOnboarding.displayName = 'UserOnboarding';
-window.UserOnboarding = UserOnboarding;
+export default UserOnboarding;

@@ -53,6 +53,7 @@ Thumbs.db
 # Build outputs
 dist/
 build/
+public/
 
 # Temporary files
 tmp/
