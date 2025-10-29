@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useWeather } from '../hooks/useWeather';
 import ZipCodeInput from './ZipCodeInput';
-import WeatherDisplay from './WeatherDisplay';
 import ComparisonView from './ComparisonView';
 import AppSettings from './AppSettings';
 import HelpSection from './HelpSection';
@@ -18,17 +17,13 @@ const App = () => {
     isLoading,
     error,
     recentZipCodes,
-    setZipCode,
     setZipCodeAndFetchTriple,
     refreshData
   } = useWeather();
-  
-  // State to track if we're showing comparison view
-  const [showComparison, setShowComparison] = useState(false);
-  
+
   // State to track onboarding completion
   const [onboardingComplete, setOnboardingComplete] = useState(false);
-  
+
   // Check if we're in demo mode
   const [isDemoMode, setIsDemoMode] = useState(false);
   
@@ -46,28 +41,20 @@ const App = () => {
   
   // Memoized handler for ZIP code submission
   const handleZipCodeSubmit = useCallback((zipCode) => {
-    if (showComparison) {
-      setZipCodeAndFetchTriple(zipCode);
-    } else {
-      setZipCode(zipCode);
-    }
-  }, [showComparison, setZipCodeAndFetchTriple, setZipCode]);
-  
-  // Memoized handler for toggling comparison view
-  const toggleComparisonView = useCallback(() => {
-    const newShowComparison = !showComparison;
-    setShowComparison(newShowComparison);
-    
-    // If switching to comparison view, fetch data from multiple sources
-    if (newShowComparison && zipCode) {
-      setZipCodeAndFetchTriple(zipCode);
-    }
-  }, [showComparison, zipCode, setZipCodeAndFetchTriple]);
+    setZipCodeAndFetchTriple(zipCode);
+  }, [setZipCodeAndFetchTriple]);
   
   // Memoized handler for refreshing data
   const handleRefresh = useCallback(() => {
     refreshData();
   }, [refreshData]);
+
+  // Ensure we always have multi-source data for the comparison view
+  useEffect(() => {
+    if (zipCode && (!Array.isArray(weatherData) || weatherData.length === 0)) {
+      setZipCodeAndFetchTriple(zipCode);
+    }
+  }, [zipCode, weatherData, setZipCodeAndFetchTriple]);
   
   // Handle onboarding completion
   const handleOnboardingComplete = useCallback(() => {
@@ -98,16 +85,6 @@ const App = () => {
           <div className="row">
             <div className="col" style={{ maxWidth: '1000px', margin: '0 auto' }}>
               <div className="controls-row">
-                <div className="view-toggle" id="view-toggle">
-                  <button
-                    className={`btn ${!showComparison ? 'btn-primary' : 'btn-secondary'}`}
-                    onClick={toggleComparisonView}
-                    aria-pressed={showComparison ? "true" : "false"}
-                  >
-                    {showComparison ? 'Single Source View' : 'Comparison View'}
-                  </button>
-                </div>
-                
                 <div id="refresh-controls">
                   <div className="refresh-controls" role="region" aria-label="Data refresh controls">
                     <button
@@ -128,21 +105,12 @@ const App = () => {
                   recentZipCodes={recentZipCodes}
                 />
               </div>
-              
-              {showComparison ? (
-                <ComparisonView
-                  weatherData={weatherData}
-                  isLoading={isLoading}
-                  error={error}
-                />
-              ) : (
-                <WeatherDisplay
-                  zipCode={zipCode}
-                  weatherData={Array.isArray(weatherData) ? weatherData[0] : weatherData}
-                  isLoading={isLoading}
-                  error={error}
-                />
-              )}
+
+              <ComparisonView
+                weatherData={weatherData}
+                isLoading={isLoading}
+                error={error}
+              />
               
               {/* Settings and Help Container for responsive layout */}
               <div className="settings-help-container">

@@ -3,14 +3,14 @@ import { createRoot } from 'react-dom/client';
 import App from './components/App';
 
 // Import CSS files
-import './styles/design-system.css';
-import './styles/animations.css';
-import './styles/onboarding.css';
-import './styles/help.css';
-import './styles/skeleton.css';
-import './styles/tooltip.css';
-import './styles/main.css';
-import './styles/responsive.css';
+import '../styles/design-system.css';
+import '../styles/animations.css';
+import '../styles/onboarding.css';
+import '../styles/help.css';
+import '../styles/skeleton.css';
+import '../styles/tooltip.css';
+import '../styles/main.css';
+import '../styles/responsive.css';
 
 // Register service worker for PWA support
 if ('serviceWorker' in navigator) {

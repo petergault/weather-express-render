@@ -53,16 +53,16 @@ module.exports = {
     }),
     new CopyWebpackPlugin({
       patterns: [
-        { 
-          from: 'src/icons', 
-          to: 'icons' 
+        {
+          from: 'src/icons',
+          to: 'icons'
         },
         {
-          from: 'src/manifest.json',
+          from: 'manifest.json',
           to: 'manifest.json'
         },
         {
-          from: 'src/serviceWorker.js',
+          from: 'serviceWorker.js',
           to: 'serviceWorker.js'
         }
       ]
