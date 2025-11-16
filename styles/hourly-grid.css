@@ -846,6 +846,13 @@
     margin-bottom: 15px;
   }
 
+  /* Allow the hourly grid card to span the full viewport width on phones */
+  .hourly-comparison-grid.card {
+    width: calc(100% + (var(--spacing-4) * 2));
+    margin-left: calc(-1 * var(--spacing-4));
+    margin-right: calc(-1 * var(--spacing-4));
+  }
+
   /* Give the hourly graph full-bleed space on small screens */
   .hourly-comparison-grid.card {
     padding: 0;
