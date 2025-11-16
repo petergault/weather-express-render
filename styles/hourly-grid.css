@@ -150,7 +150,8 @@
 }
 
 .hourly-grid-container {
-  overflow-x: hidden;
+  /* Allow horizontal scrolling on small screens so the full graph remains visible */
+  overflow-x: auto;
   overflow-y: visible;
   width: 100%;
   max-width: 100%;
