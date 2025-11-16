@@ -665,7 +665,7 @@
 
 /* Adjust hourly grid container for multi-day layout */
 .day-section .hourly-grid-container {
-  overflow-x: hidden;
+  overflow-x: auto;
   overflow-y: visible;
   width: 100%;
   max-width: 100%;
@@ -840,9 +840,28 @@
   .weather-description {
     font-size: 0.75rem;
   }
-  
+
   .multi-day-layout h2 {
     font-size: 1.2rem;
     margin-bottom: 15px;
+  }
+
+  /* Give the hourly graph full-bleed space on small screens */
+  .hourly-comparison-grid.card {
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .hourly-comparison-grid .day-section {
+    border-radius: 0;
+    margin: 0;
+    padding: 16px;
+    box-shadow: none;
+  }
+
+  .hourly-comparison-grid .day-section .hourly-grid-container {
+    margin: 0 -16px;
+    width: calc(100% + 32px);
+    padding: 0 16px 12px;
   }
 }
